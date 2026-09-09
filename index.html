@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEGA PASSION 유류 소모량 및 운항 분석 대시보드</title>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --text-color: #f8fafc;
+      --text-secondary: #94a3b8;
+      --border-color: #334155;
+      --table-hover: #334155;
+      --th-bg: #1e293b; /* Sticky Header 불투명 배경 */
+      --accent-blue: rgba(147, 197, 253, 0.85);
+      --accent-green: rgba(167, 243, 208, 0.85);
+      --chart-grid: #334155;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+      --btn-bg: #334155;
+      --btn-text: #f8fafc;
+      --input-bg: #0f172a;
+    }
+
+    [data-theme="light"] {
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-color: #0f172a;
+      --text-secondary: #64748b;
+      --border-color: #e2e8f0;
+      --table-hover: #f1f5f9;
+      --th-bg: #f8fafc; /* Sticky Header 불투명 배경 (Light) */
+      --accent-blue: rgba(59, 130, 246, 0.85);
+      --accent-green: rgba(16, 185, 129, 0.85);
+      --chart-grid: #e2e8f0;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      --btn-bg: #e2e8f0;
+      --btn-text: #0f172a;
+      --input-bg: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-title h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .header-title p {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    /* Text-only Theme Toggle Switch */
+    .theme-toggle-text {
+      background-color: var(--btn-bg);
+      color: var(--btn-text);
+      border: 1px solid var(--border-color);
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .theme-toggle-text:hover {
+      opacity: 0.85;
+    }
+
+    .hamburger {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      color: var(--text-color);
+      cursor: pointer;
+    }
+
+    /* Side Navigation Drawer */
+    .sidenav {
+      position: fixed;
+      top: 0;
+      right: -300px;
+      width: 300px;
+      height: 100%;
+      background-color: var(--card-bg);
+      box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
+      z-index: 200;
+      transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem;
+    }
+
+    .sidenav.active {
+      right: 0;
+    }
+
+    .sidenav-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text-color);
+      cursor: pointer;
+    }
+
+    .sidenav-menu {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .sidenav-menu a {
+      color: var(--text-color);
+      text-decoration: none;
+      font-size: 0.95rem;
+      padding: 0.5rem 0;
+      display: block;
+    }
+
+    .sidenav-menu a:hover {
+      color: #60a5fa;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 150;
+      display: none;
+    }
+
+    .overlay.active {
+      display: block;
+    }
+
+    /* Page View Containers & Transitions */
+    .page-container {
+      display: none;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 1.5rem;
+      flex-direction: column;
+      gap: 1.5rem;
+      flex: 1;
+      opacity: 0;
+      transform: translateY(15px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .page-container.active-page {
+      display: flex;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* KPI Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 1rem;
+    }
+
+    .kpi-card {
+      background-color: var(--card-bg);
+      padding: 1.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow);
+    }
+
+    .kpi-card h3 {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.4rem;
+    }
+
+    .kpi-card .value {
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+
+    .kpi-card .sub-text {
+      font-size: 0.72rem;
+      margin-top: 0.4rem;
+      color: var(--text-secondary);
+    }
+
+    .kpi-card .highlight {
+      color: var(--accent-green);
+    }
+
+    /* Dashboard Grid */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .card.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .card-header-flex {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+    }
+
+    .card h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      border-left: 4px solid #3b82f6;
+      padding-left: 0.5rem;
+    }
+
+    .page-link-btn {
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .page-link-btn:hover {
+      background-color: #2563eb;
+    }
+
+    /* Search Input Styling */
+    .search-box-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .search-input {
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 0.45rem 0.8rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      outline: none;
+      width: 240px;
+    }
+
+    .search-input:focus {
+      border-color: #3b82f6;
+    }
+
+    /* Canvas Wrapper */
+    .chart-container {
+      position: relative;
+      height: 320px;
+      width: 100%;
+    }
+
+    /* Tables & Sticky Header CSS */
+    .table-container {
+      overflow-x: auto;
+      max-height: 70vh; /* 테이블 스크롤 및 헤더 고정을 위한 가치 설정 */
+      position: relative;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.82rem;
+    }
+
+    th, td {
+      padding: 0.75rem 0.9rem;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+
+    /* ⭐ 상단 헤더 고정 (Sticky Header) 핵심 속성 ⭐ */
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background-color: var(--th-bg);
+      color: var(--text-secondary);
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 0 1px 0 var(--border-color); /* 스크롤 시 경계선 유지 */
+    }
+
+    th:hover {
+      color: var(--text-color);
+    }
+
+    th .sort-icon {
+      font-size: 0.7rem;
+      margin-left: 0.3rem;
+      opacity: 0.6;
+    }
+
+    tbody tr:hover {
+      background-color: var(--table-hover);
+    }
+
+    /* Tooltip Styling for Shipment Details */
+    .has-tooltip {
+      position: relative;
+      cursor: help;
+      text-decoration: underline dotted;
+    }
+
+    .has-tooltip:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #000;
+      color: #fff;
+      padding: 0.4rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      white-space: normal;
+      width: max-content;
+      max-width: 260px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      z-index: 300;
+    }
+
+    @media (max-width: 900px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      header {
+        padding: 1rem;
+      }
+      .page-container {
+        padding: 1rem;
+      }
+      .search-input {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="header-title">
+      <h1>MEGA PASSION 유류 소모량 및 운항 분석</h1>
+      <p>기준일: 2026-08-26 (2026 R03)</p>
+    </div>
+    <div class="header-controls">
+      <button class="theme-toggle-text" id="themeToggleBtn">[ LIGHT MODE ]</button>
+      <button class="hamburger" id="hamburgerBtn" aria-label="메뉴 열기">&#9776;</button>
+    </div>
+  </header>
+
+  <div class="overlay" id="overlay"></div>
+
+  <!-- Side Navigation Drawer -->
+  <nav class="sidenav" id="sidenav">
+    <div class="sidenav-header">
+      <h3>대시보드 메뉴</h3>
+      <button class="close-btn" id="closeBtn">&times;</button>
+    </div>
+    <ul class="sidenav-menu">
+      <li><a href="#" onclick="switchPage('page1')">1장: Summary & Chart</a></li>
+      <li><a href="#" onclick="switchPage('page2')">2장: Shipment Details</a></li>
+    </ul>
+  </nav>
+
+  <!-- PAGE 1: SUMMARY SHEET -->
+  <main id="page1" class="page-container active-page">
+    
+    <!-- KPI Section -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <h3>총 항해 유류 소모량</h3>
+        <div class="value">1,071.11 톤</div>
+        <div class="sub-text">Voy 63~75 누적 총계</div>
+      </div>
+      <div class="kpi-card">
+        <h3>총 유류 절감량</h3>
+        <div class="value highlight">839.59 톤</div>
+        <div class="sub-text">기준(173.7톤/항차) 대비 절감</div>
+      </div>
+      <div class="kpi-card">
+        <h3>기 정산 성과금 (Voy 63~70)</h3>
+        <div class="value">₩299,111,224</div>
+        <div class="sub-text">정산 완료 집계분</div>
+      </div>
+      <div class="kpi-card">
+        <h3>미 정산 성과금 (Voy 71~75)</h3>
+        <div class="value highlight">₩124,445,767</div>
+        <div class="sub-text">추가 발생 성과금</div>
+      </div>
+      <div class="kpi-card">
+        <h3>총 성과금 합계</h3>
+        <div class="value">₩423,556,991</div>
+        <div class="sub-text">기 정산 + 미 정산 총계</div>
+      </div>
+    </section>
+
+    <!-- Dashboard Main Grid -->
+    <div class="dashboard-grid">
+      
+      <!-- Chart 1: 항차별 유류 사용 및 절감 -->
+      <div class="card">
+        <h2>항차별 유류 사용량 및 절감량 (톤)</h2>
+        <div class="chart-container">
+          <canvas id="fuelChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: 성과금 지급 내역 -->
+      <div class="card">
+        <h2>항차별 성과금 추이 (KRW)</h2>
+        <div class="chart-container">
+          <canvas id="bonusChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Table 1: 성과금 상세 집계 -->
+      <div class="card full-width">
+        <div class="card-header-flex">
+          <h2>항차별 성과금 집계 상세 (2026년 분)</h2>
+          <button class="page-link-btn" onclick="switchPage('page2')">Shipment Details (다음 장) 이동 &rarr;</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>항차</th>
+                <th>항해 유류량</th>
+                <th>절감량</th>
+                <th>성과량 (50%)</th>
+                <th>톤당 단가(한화)</th>
+                <th>성과금 내역(한화)</th>
+                <th>사용 비율</th>
+                <th>항차별 성과금</th>
+                <th>정산 여부</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Voy 63</td><td>98.12 톤</td><td>75.58 톤</td><td>37.79 톤</td><td>₩703,378</td><td>₩26,580,640</td><td>100.0%</td><td>₩26,580,640</td><td><span style="color:#a7f3d0;">기 정산</span></td></tr>
+              <tr><td rowspan="2">Voy 64</td><td rowspan="2">98.66 톤</td><td rowspan="2">75.04 톤</td><td>20.20 톤</td><td>₩703,378</td><td>₩14,206,482</td><td>53.8%</td><td rowspan="2">₩25,854,157</td><td rowspan="2"><span style="color:#a7f3d0;">기 정산</span></td></tr>
+              <tr><td>17.32 톤</td><td>₩672,402</td><td>₩11,647,675</td><td>46.2%</td></tr>
+              <tr><td>Voy 65</td><td>96.70 톤</td><td>77.00 톤</td><td>38.50 톤</td><td>₩672,402</td><td>₩25,887,486</td><td>100.0%</td><td>₩25,887,486</td><td><span style="color:#a7f3d0;">기 정산</span></td></tr>
+              <tr><td>Voy 66</td><td>88.22 톤</td><td>85.48 톤</td><td>42.74 톤</td><td>₩672,402</td><td>₩28,738,472</td><td>100.0%</td><td>₩28,738,472</td><td><span style="color:#a7f3d0;">기 정산</span></td></tr>
+              <tr><td rowspan="2">Voy 67</td><td rowspan="2">103.37 톤</td><td rowspan="2">70.33 톤</td><td>30.27 톤</td><td>₩672,402</td><td>₩20,355,720</td><td>86.1%</td><td rowspan="2">₩28,083,559</td><td rowspan="2"><span style="color:#a7f3d0;">기 정산</span></td></tr>
+              <tr><td>4.89 톤</td><td>₩1,579,731</td><td>₩7,727,839</td><td>13.9%</td></tr>
+              <tr><td>Voy 68</td><td>98.31 톤</td><td>75.39 톤</td><td>37.70 톤</td><td>₩1,579,731</td><td>₩59,547,951</td><td>100.0%</td><td>₩59,547,951</td><td><span style="color:#a7f3d0;">기 정산</span></td></tr>
+              <tr><td rowspan="2">Voy 69</td><td rowspan="2">113.48 톤</td><td rowspan="2">60.22 톤</td><td>21.50 톤</td><td>₩1,579,731</td><td>₩33,964,212</td><td>71.4%</td><td rowspan="2">₩46,044,574</td><td rowspan="2"><span style="color:#a7f3d0;">기 정산</span></td></tr>
+              <tr><td>8.61 톤</td><td>₩1,403,062</td><td>₩12,080,362</td><td>28.6%</td></tr>
+              <tr><td>Voy 70</td><td>90.49 톤</td><td>83.21 톤</td><td>41.61 톤</td><td>₩1,403,062</td><td>₩58,374,385</td><td>100.0%</td><td>₩58,374,385</td><td><span style="color:#a7f3d0;">기 정산</span></td></tr>
+              <tr><td>Voy 71</td><td>92.28 톤</td><td>81.42 톤</td><td>40.71 톤</td><td>₩1,403,062</td><td>₩57,118,644</td><td>100.0%</td><td>₩57,118,644</td><td><span style="color:#93c5fd;">미 정산</span></td></tr>
+              <tr><td>Voy 74</td><td>95.78 톤</td><td>77.92 톤</td><td>38.96 톤</td><td>₩1,112,845</td><td>₩43,356,441</td><td>100.0%</td><td>₩43,356,441</td><td><span style="color:#93c5fd;">미 정산</span></td></tr>
+              <tr><td>Voy 75</td><td>130.62 톤</td><td>43.08 톤</td><td>21.54 톤</td><td>₩1,112,845</td><td>₩23,970,681</td><td>100.0%</td><td>₩23,970,681</td><td><span style="color:#93c5fd;">미 정산</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Table 2: 유류 공급 정보 -->
+      <div class="card full-width">
+        <h2>유류 공급 및 소진 현황 정보</h2>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>공급 요청일</th>
+                <th>유류 공급일</th>
+                <th>공급량</th>
+                <th>단가(USD)</th>
+                <th>환율</th>
+                <th>톤당 단가(한화)</th>
+                <th>소진일</th>
+                <th>사용 일수</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>2025-08-08</td><td>2025-08-12</td><td>800.0 톤</td><td>$530</td><td>1,393.2 원</td><td>₩738,396</td><td>2025-11-19</td><td>72 일</td></tr>
+              <tr><td>2025-11-03</td><td>2025-11-06</td><td>800.0 톤</td><td>$489</td><td>1,438.4 원</td><td>₩703,378</td><td>2026-02-02</td><td>75 일</td></tr>
+              <tr><td>N/A</td><td>2026-01-09</td><td>500.0 톤</td><td>$464</td><td>1,448.3 원</td><td>₩672,402</td><td>2026-03-18</td><td>44 일</td></tr>
+              <tr><td>N/A</td><td>2026-03-08</td><td>500.0 톤</td><td>$1,079</td><td>1,464.3 원</td><td>₩1,579,731</td><td>2026-05-14</td><td>57 일</td></tr>
+              <tr><td>N/A</td><td>2026-05-06</td><td>500.0 톤</td><td>$945</td><td>1,484.8 원</td><td>₩1,403,062</td><td>2026-07-04</td><td>51 일</td></tr>
+              <tr><td>N/A</td><td>2026-06-24</td><td>800.0 톤</td><td>N/A</td><td>N/A</td><td>₩1,112,845</td><td>-</td><td>-</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- PAGE 2: SHIPMENT DETAILS SHEET -->
+  <main id="page2" class="page-container">
+    <div class="card full-width">
+      <div class="card-header-flex">
+        <h2>Shipment Details (Voy 63~77 전 항차 운항 상세 및 이벤트)</h2>
+        
+        <div class="search-box-container">
+          <input type="text" id="searchInput" class="search-input" placeholder="항차 검색 (예: Voy 67, 대기)..." onkeyup="filterDetailsTable()">
+          <button class="page-link-btn" onclick="switchPage('page1')">&larr; Summary (이전 장) 이동</button>
+        </div>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--text-secondary);">※ 스크롤 시 상단 테이블 헤더가 고정되며, 헤더 클릭 시 <b>정렬(Sort)</b>이 적용됩니다.</p>
+      
+      <div class="table-container">
+        <table id="detailsTable">
+          <thead>
+            <tr>
+              <th onclick="sortTable(0)">Voy No <span class="sort-icon">&varr;</span></th>
+              <th onclick="sortTable(1)">구분(Leg) <span class="sort-icon">&varr;</span></th>
+              <th onclick="sortTable(2)">날짜/시간 <span class="sort-icon">&varr;</span></th>
+              <th onclick="sortTable(3)">이벤트 <span class="sort-icon">&varr;</span></th>
+              <th onclick="sortTable(4, true)">선속(Knot) <span class="sort-icon">&varr;</span></th>
+              <th onclick="sortTable(5, true)">M/E FOC (톤) <span class="sort-icon">&varr;</span></th>
+              <th onclick="sortTable(6, true)">BLR FOC (톤) <span class="sort-icon">&varr;</span></th>
+              <th onclick="sortTable(7, true)">ROB HFO (톤) <span class="sort-icon">&varr;</span></th>
+              <th onclick="sortTable(8)">풍향 / 윈드스케일 <span class="sort-icon">&varr;</span></th>
+              <th onclick="sortTable(9)">M/E 가동 <span class="sort-icon">&varr;</span></th>
+              <th onclick="sortTable(10)">비고 (특이사항) <span class="sort-icon">&varr;</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Voy 63 -->
+            <tr><td>Voy 63</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 01.15 18:00</td><td>R/UP</td><td>4.55</td><td>1.85</td><td>0.12</td><td>701.26</td><td>선수 / -</td><td>4 대</td><td>R/UP 시작</td></tr>
+            <tr><td>Voy 63</td><td>Leg 1</td><td>'26 01.16 12:00</td><td>Noon at sea</td><td>9.00</td><td>15.50</td><td>1.09</td><td>684.67</td><td>선수 / 3.0</td><td>3 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 63</td><td>Leg 1</td><td>'26 01.17 12:00</td><td>Noon at sea</td><td>7.76</td><td>22.69</td><td>2.11</td><td>659.87</td><td>선수 / 7.0</td><td>3 대</td><td><span class="has-tooltip" data-tooltip="기상 악화 및 맞바람으로 선속 감소">기상 악화...</span></td></tr>
+            <tr><td>Voy 63</td><td>Leg 1</td><td>'26 01.18 08:00</td><td>Arrival S/By</td><td>6.80</td><td>12.11</td><td>1.95</td><td>645.81</td><td>선수우현 / 4.0</td><td>3 대</td><td>일정 준수 선속 감소</td></tr>
+            <tr><td>Voy 63</td><td>Leg 1</td><td>'26 01.18 09:12</td><td>Arrival</td><td>0.00</td><td>0.91</td><td>0.20</td><td>644.70</td><td>선수 / -</td><td>3 대</td><td>연태 접안 완료 (Leg1합계: 58.5t)</td></tr>
+            <tr><td>Voy 63</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 01.24 16:42</td><td>R/UP</td><td>7.06</td><td>2.15</td><td>0.19</td><td>603.25</td><td>선수좌현 / -</td><td>4 대</td><td>22:00부터 발전기 2대 운용</td></tr>
+            <tr><td>Voy 63</td><td>Leg 2</td><td>'26 01.25 12:00</td><td>Noon at sea</td><td>8.91</td><td>11.73</td><td>1.45</td><td>590.07</td><td>좌현 / 4.0</td><td>3 대</td><td>12:00부터 발전기 3대 운용</td></tr>
+            <tr><td>Voy 63</td><td>Leg 2</td><td>'26 01.26 12:00</td><td>Noon at sea</td><td>8.17</td><td>11.02</td><td>1.84</td><td>577.21</td><td>좌현 / 4.0</td><td>2 대</td><td>일정 준수를 위해 선속 감소</td></tr>
+            <tr><td>Voy 63</td><td>Leg 2</td><td>'26 01.27 08:12</td><td>Arrival S/By</td><td>6.88</td><td>9.02</td><td>1.54</td><td>566.65</td><td>선수좌현 / 4.0</td><td>3 대</td><td>일정 준수를 위해 선속 감소</td></tr>
+            <tr><td>Voy 63</td><td>Leg 2</td><td>'26 01.27 09:30</td><td>Arrival</td><td>0.00</td><td>0.53</td><td>0.12</td><td>566.00</td><td>선수좌현 / -</td><td>3 대</td><td><span class="has-tooltip" data-tooltip="한화오션 스케줄로 인해 ANCHORAGE에서 대기 (01-27 09:30 ~ 01-28 07:00)">옥포 도착 (대기)...</span></td></tr>
+            
+            <!-- Voy 64 -->
+            <tr><td>Voy 64</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 01.30 18:18</td><td>R/UP</td><td>5.00</td><td>1.00</td><td>0.12</td><td>545.93</td><td>선수우현 / -</td><td>4 대</td><td>R/UP 시작</td></tr>
+            <tr><td>Voy 64</td><td>Leg 1</td><td>'26 01.31 12:00</td><td>Noon at sea</td><td>9.21</td><td>12.82</td><td>1.69</td><td>531.42</td><td>선수우현 / 4.0</td><td>2 대</td><td>조류 영향으로 선속 증가</td></tr>
+            <tr><td>Voy 64</td><td>Leg 1</td><td>'26 02.01 12:00</td><td>Noon at sea</td><td>7.24</td><td>16.65</td><td>2.18</td><td>512.59</td><td>선수우현 / 3.0</td><td>2 대</td><td>기상악화 21:30부터 발전기3대 운용</td></tr>
+            <tr><td>Voy 64</td><td>Leg 1</td><td>'26 02.02 08:00</td><td>Arrival S/By</td><td>7.70</td><td>16.61</td><td>2.04</td><td>493.94</td><td>우현 / 3.0</td><td>3 대</td><td><span class="has-tooltip" data-tooltip="'25 11/06 공급연료 소진 (소진총량 53.11톤, 사용비율 53.8%)">연료 소진...</span></td></tr>
+            <tr><td>Voy 64</td><td>Leg 1</td><td>'26 02.02 11:12</td><td>Arrival</td><td>5.00</td><td>0.77</td><td>0.12</td><td>493.05</td><td>선수좌현 / -</td><td>4 대</td><td>연태 접안 (Leg1합계: 54.0t)</td></tr>
+            <tr><td>Voy 64</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 02.04 16:00</td><td>R/UP</td><td>6.47</td><td>2.12</td><td>0.22</td><td>477.37</td><td>우현 / -</td><td>4 대</td><td>뒷바람으로 20:00부터 발전기2대 운용</td></tr>
+            <tr><td>Voy 64</td><td>Leg 2</td><td>'26 02.05 12:00</td><td>Noon at sea</td><td>8.90</td><td>13.49</td><td>1.57</td><td>462.31</td><td>선미우현 / 3.0</td><td>2 대</td><td>뒷바람 영향으로 선속 증가</td></tr>
+            <tr><td>Voy 64</td><td>Leg 2</td><td>'26 02.06 12:00</td><td>Noon at sea</td><td>8.35</td><td>12.70</td><td>2.06</td><td>447.55</td><td>선미우현 / 6.0</td><td>2 대</td><td>일정 준수를 위해 선속 조정</td></tr>
+            <tr><td>Voy 64</td><td>Leg 2</td><td>'26 02.07 08:00</td><td>Arrival S/By</td><td>6.65</td><td>9.82</td><td>1.84</td><td>435.89</td><td>선수좌현 / 3.0</td><td>3 대</td><td>일정 준수를 위해 선속 감소</td></tr>
+            <tr><td>Voy 64</td><td>Leg 2</td><td>'26 02.07 09:12</td><td>Arrival</td><td>0.00</td><td>0.65</td><td>0.19</td><td>435.05</td><td>선수 / -</td><td>4 대</td><td><span class="has-tooltip" data-tooltip="기상 악화로 인해 ANCHORAGE에서 대기 (2026.02.07 09:12 ~ 2026.02.09 06:24)">옥포 도착 (대기)...</span></td></tr>
+
+            <!-- Voy 65 -->
+            <tr><td>Voy 65</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 02.11 17:30</td><td>R/UP</td><td>5.56</td><td>1.42</td><td>0.14</td><td>403.05</td><td>선수우현 / -</td><td>4 대</td><td>15:40~17:40 발전기 4대 운용</td></tr>
+            <tr><td>Voy 65</td><td>Leg 1</td><td>'26 02.12 12:00</td><td>Noon at sea</td><td>8.05</td><td>11.81</td><td>1.63</td><td>389.61</td><td>선수우현 / 2.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 65</td><td>Leg 1</td><td>'26 02.13 12:00</td><td>Noon at sea</td><td>8.16</td><td>15.40</td><td>2.29</td><td>371.92</td><td>선수우현 / 4.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 65</td><td>Leg 1</td><td>'26 02.14 08:00</td><td>Arrival S/By</td><td>7.30</td><td>12.64</td><td>2.20</td><td>357.08</td><td>선수좌현 / 3.0</td><td>3 대</td><td>06:50부터 발전기 3대 운용</td></tr>
+            <tr><td>Voy 65</td><td>Leg 1</td><td>'26 02.14 11:18</td><td>Arrival</td><td>4.85</td><td>0.83</td><td>0.12</td><td>356.13</td><td>선미좌현 / -</td><td>4 대</td><td>연태 접안 (Leg1합계: 48.5t)</td></tr>
+            <tr><td>Voy 65</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 02.18 15:30</td><td>R/UP</td><td>7.14</td><td>1.77</td><td>0.18</td><td>326.35</td><td>선수좌현 / -</td><td>4 대</td><td>13:10~15:30 발전기 4대 운용</td></tr>
+            <tr><td>Voy 65</td><td>Leg 2</td><td>'26 02.19 12:00</td><td>Noon at sea</td><td>9.41</td><td>16.41</td><td>1.73</td><td>308.21</td><td>선수우현 / 3.0</td><td>3 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 65</td><td>Leg 2</td><td>'26 02.20 12:00</td><td>Noon at sea</td><td>7.96</td><td>14.05</td><td>1.92</td><td>292.24</td><td>선수좌현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 65</td><td>Leg 2</td><td>'26 02.21 06:30</td><td>Arrival S/By</td><td>0.97</td><td>8.61</td><td>1.56</td><td>282.07</td><td>선수좌현 / 3.0</td><td>4 대</td><td>06:30부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 65</td><td>Leg 2</td><td>'26 02.21 08:12</td><td>Arrival</td><td>2.94</td><td>1.79</td><td>0.20</td><td>280.08</td><td>선미 / -</td><td>4 대</td><td>옥포 접안 (Leg2합계: 48.2t)</td></tr>
+
+            <!-- Voy 66 -->
+            <tr><td>Voy 66</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 02.24 18:00</td><td>R/UP</td><td>3.75</td><td>1.43</td><td>0.18</td><td>250.41</td><td>선수우현 / -</td><td>4 대</td><td>15:40~17:40 발전기 4대 운용</td></tr>
+            <tr><td>Voy 66</td><td>Leg 1</td><td>'26 02.25 12:00</td><td>Noon at sea</td><td>8.67</td><td>9.54</td><td>1.34</td><td>239.53</td><td>선수우현 / 4.0</td><td>2 대</td><td>최저 소모 항해 구역</td></tr>
+            <tr><td>Voy 66</td><td>Leg 1</td><td>'26 02.26 12:00</td><td>Noon at sea</td><td>8.21</td><td>14.10</td><td>2.08</td><td>223.35</td><td>선수우현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 66</td><td>Leg 1</td><td>'26 02.27 07:00</td><td>Arrival S/By</td><td>6.70</td><td>9.27</td><td>1.60</td><td>212.48</td><td>선수좌현 / 3.0</td><td>3 대</td><td>06:50부터 발전기 3대 운용</td></tr>
+            <tr><td>Voy 66</td><td>Leg 1</td><td>'26 02.27 08:18</td><td>Arrival</td><td>0.00</td><td>0.00</td><td>0.00</td><td>211.60</td><td>선미좌현 / -</td><td>4 대</td><td>연태 접안 (Leg1합계: 39.5t)</td></tr>
+            <tr><td>Voy 66</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 03.04 13:12</td><td>R/UP</td><td>8.33</td><td>1.14</td><td>0.08</td><td>174.31</td><td>선수좌현 / -</td><td>4 대</td><td>13:10~15:30 발전기 4대 운용</td></tr>
+            <tr><td>Voy 66</td><td>Leg 2</td><td>'26 03.05 12:00</td><td>Noon at sea</td><td>8.51</td><td>16.88</td><td>1.90</td><td>155.53</td><td>선수우현 / 3.0</td><td>3 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 66</td><td>Leg 2</td><td>'26 03.06 12:00</td><td>Noon at sea</td><td>8.13</td><td>13.56</td><td>1.98</td><td>139.99</td><td>선수좌현 / 4.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 66</td><td>Leg 2</td><td>'26 03.07 06:00</td><td>Arrival S/By</td><td>6.89</td><td>9.09</td><td>1.62</td><td>129.28</td><td>선수좌현 / 4.0</td><td>4 대</td><td>06:30부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 66</td><td>Leg 2</td><td>'26 03.07 08:30</td><td>Arrival</td><td>3.60</td><td>2.21</td><td>0.22</td><td>126.85</td><td>선미 / -</td><td>4 대</td><td>옥포 접안 (Leg2합계: 48.7t)</td></tr>
+
+            <!-- Voy 67 -->
+            <tr><td>Voy 67</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 03.10 17:00</td><td>R/UP</td><td>2.00</td><td>0.39</td><td>0.06</td><td>602.41</td><td>선수 / -</td><td>4 대</td><td>16:30~17:00 발전기 4대 운용</td></tr>
+            <tr><td>Voy 67</td><td>Leg 1</td><td>'26 03.11 12:00</td><td>Noon at sea</td><td>8.42</td><td>12.06</td><td>1.52</td><td>588.83</td><td>선수우현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 67</td><td>Leg 1</td><td>'26 03.12 12:00</td><td>Noon at sea</td><td>8.29</td><td>16.09</td><td>2.03</td><td>570.71</td><td>선수우현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 67</td><td>Leg 1</td><td>'26 03.13 07:00</td><td>Arrival S/By</td><td>6.60</td><td>10.80</td><td>1.51</td><td>558.40</td><td>선수좌현 / 3.0</td><td>4 대</td><td>07:00부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 67</td><td>Leg 1</td><td>'26 03.13 08:00</td><td>Drop anchor</td><td>7.00</td><td>0.75</td><td>0.22</td><td>557.43</td><td>선수좌현 / -</td><td>4 대</td><td>연태 묘박지 투묘</td></tr>
+            <tr><td>Voy 67</td><td>Leg 1</td><td>'26 03.13 12:00</td><td>Noon at stop eng</td><td>0.00</td><td>0.56</td><td>0.29</td><td>556.58</td><td>선수좌현 / 3.0</td><td>4 대</td><td>주기관 정지 대기</td></tr>
+            <tr><td>Voy 67</td><td>Leg 1</td><td>'26 03.13 13:06</td><td>Heave anchor</td><td>0.00</td><td>0.42</td><td>0.16</td><td>556.00</td><td>선수좌현 / -</td><td>4 대</td><td>양묘 후 입항 시작</td></tr>
+            <tr><td>Voy 67</td><td>Leg 1</td><td>'26 03.13 17:48</td><td>Arrival</td><td>4.47</td><td>4.09</td><td>0.39</td><td>551.52</td><td>선수좌현 / -</td><td>4 대</td><td>연태 접안 (Leg1합계: 51.3t)</td></tr>
+            <tr><td>Voy 67</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 03.16 17:36</td><td>R/UP</td><td>5.42</td><td>2.57</td><td>0.23</td><td>530.18</td><td>선수 / -</td><td>4 대</td><td>15:12~17:00 발전기 4대 운용</td></tr>
+            <tr><td>Voy 67</td><td>Leg 2</td><td>'26 03.17 12:00</td><td>Noon at sea</td><td>9.40</td><td>15.50</td><td>1.57</td><td>513.11</td><td>선수좌현 / 2.0</td><td>3 대</td><td>03:00까지 발전기 3대 운용</td></tr>
+            <tr><td>Voy 67</td><td>Leg 2</td><td>'26 03.18 12:00</td><td>Noon at sea</td><td>8.70</td><td>15.90</td><td>1.88</td><td>495.33</td><td>선수좌현 / 4.0</td><td>2 대</td><td><span class="has-tooltip" data-tooltip="'26 01/09 공급연료 소진 (소진총량 88.99톤, 사용비율 86.1%)">연료 소진...</span></td></tr>
+            <tr><td>Voy 67</td><td>Leg 2</td><td>'26 03.19 06:00</td><td>Arrival S/By</td><td>7.56</td><td>10.95</td><td>1.54</td><td>482.84</td><td>선수좌현 / 4.0</td><td>4 대</td><td>06:00부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 67</td><td>Leg 2</td><td>'26 03.19 08:00</td><td>Arrival</td><td>5.00</td><td>1.64</td><td>0.25</td><td>480.95</td><td>선수 / -</td><td>4 대</td><td><span class="has-tooltip" data-tooltip="26.03.22~26.04.13 장기 대기로 인하여 운항 외 F.O 소모량(165.2톤) 과다 발생">장기 대기...</span></td></tr>
+
+            <!-- Voy 68 -->
+            <tr><td>Voy 68</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 04.14 07:00</td><td>R/UP</td><td>3.33</td><td>1.69</td><td>0.12</td><td>310.57</td><td>선수 / -</td><td>4 대</td><td>05:30~07:00 발전기 4대 운용</td></tr>
+            <tr><td>Voy 68</td><td>Leg 1</td><td>'26 04.14 12:00</td><td>Noon at sea</td><td>10.00</td><td>3.80</td><td>0.24</td><td>306.53</td><td>선수우현 / 3.0</td><td>2 대</td><td>고속 항해</td></tr>
+            <tr><td>Voy 68</td><td>Leg 1</td><td>'26 04.15 12:00</td><td>Noon at sea</td><td>9.71</td><td>20.91</td><td>1.36</td><td>284.26</td><td>선수우현 / 3.0</td><td>2 대</td><td>고속 항해 유지</td></tr>
+            <tr><td>Voy 68</td><td>Leg 1</td><td>'26 04.16 12:00</td><td>Noon at sea</td><td>8.76</td><td>18.59</td><td>1.45</td><td>264.22</td><td>선수좌현 / 3.0</td><td>4 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 68</td><td>Leg 1</td><td>'26 04.16 12:30</td><td>Arrival S/By</td><td>4.00</td><td>0.20</td><td>0.04</td><td>263.98</td><td>선수좌현 / 3.0</td><td>4 대</td><td>12:30부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 68</td><td>Leg 1</td><td>'26 04.16 17:00</td><td>Arrival</td><td>3.33</td><td>3.18</td><td>0.34</td><td>260.46</td><td>선수좌현 / -</td><td>4 대</td><td>연태 접안 (Leg1합계: 51.9t)</td></tr>
+            <tr><td>Voy 68</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 04.19 15:30</td><td>R/UP</td><td>5.20</td><td>2.55</td><td>0.14</td><td>238.03</td><td>선수우현 / -</td><td>4 대</td><td>13:00~15:30 발전기 4대 운용</td></tr>
+            <tr><td>Voy 68</td><td>Leg 2</td><td>'26 04.20 12:00</td><td>Noon at sea</td><td>9.12</td><td>15.92</td><td>1.25</td><td>220.86</td><td>선미좌현 / 5.0</td><td>3 대</td><td>15:30~23:00 발전기 3대 운용</td></tr>
+            <tr><td>Voy 68</td><td>Leg 2</td><td>'26 04.21 12:00</td><td>Noon at sea</td><td>7.21</td><td>12.10</td><td>1.39</td><td>207.37</td><td>선수좌현 / 4.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 68</td><td>Leg 2</td><td>'26 04.22 12:00</td><td>Noon at sea</td><td>6.43</td><td>10.03</td><td>1.41</td><td>195.93</td><td>선수좌현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 68</td><td>Leg 2</td><td>'26 04.22 12:00</td><td>Arrival S/By</td><td>0.00</td><td>0.00</td><td>0.00</td><td>195.93</td><td>선수좌현 / 3.0</td><td>4 대</td><td>12:00부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 68</td><td>Leg 2</td><td>'26 04.22 14:18</td><td>Arrival</td><td>3.04</td><td>1.44</td><td>0.16</td><td>194.33</td><td>선수 / -</td><td>4 대</td><td><span class="has-tooltip" data-tooltip="04.22 입항 후 05.07까지 대기로 운항 외 유류 소모량 103.6톤 발생">옥포 도착 (대기)...</span></td></tr>
+
+            <!-- Voy 69 -->
+            <tr><td>Voy 69</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 05.07 18:30</td><td>R/UP</td><td>4.00</td><td>1.66</td><td>0.07</td><td>588.25</td><td>선수 / -</td><td>2 대</td><td><span class="has-tooltip" data-tooltip="17:00~18:30 4대 운용 후 2대 전환. 안개로 연태 출항 지연">안개 지연...</span></td></tr>
+            <tr><td>Voy 69</td><td>Leg 1</td><td>'26 05.08 12:00</td><td>Noon at sea</td><td>8.06</td><td>11.81</td><td>0.85</td><td>575.59</td><td>선수우현 / 4.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 69</td><td>Leg 1</td><td>'26 05.09 12:00</td><td>Noon at sea</td><td>7.92</td><td>13.06</td><td>1.28</td><td>561.25</td><td>선미좌현 / 4.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 69</td><td>Leg 1</td><td>'26 05.10 08:00</td><td>Arrival S/By</td><td>8.00</td><td>12.61</td><td>1.03</td><td>547.61</td><td>선수좌현 / 5.0</td><td>4 대</td><td>08:00부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 69</td><td>Leg 1</td><td>'26 05.10 11:30</td><td>Arrival</td><td>4.00</td><td>3.39</td><td>0.25</td><td>543.97</td><td>선미우현 / -</td><td>1 대</td><td>연태 접안 (Leg1합계: 46.0t)</td></tr>
+            <tr><td>Voy 69</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 05.13 10:30</td><td>R/UP</td><td>5.00</td><td>2.21</td><td>0.09</td><td>524.20</td><td>선수우현 / -</td><td>4 대</td><td>08:30~10:30 발전기 4대 운용</td></tr>
+            <tr><td>Voy 69</td><td>Leg 2</td><td>'26 05.13 12:00</td><td>Noon at sea</td><td>8.38</td><td>0.67</td><td>0.02</td><td>523.51</td><td>선수우현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 69</td><td>Leg 2</td><td>'26 05.14 12:00</td><td>Noon at sea</td><td>8.98</td><td>31.00</td><td>1.05</td><td>491.46</td><td>선수좌현 / 4.0</td><td>2 대</td><td><span class="has-tooltip" data-tooltip="'26 03/08 공급연료 소진 (소진총량 81.05톤, 사용비율 71.4%)">연료 소진...</span></td></tr>
+            <tr><td>Voy 69</td><td>Leg 2</td><td>'26 05.15 12:00</td><td>Noon at sea</td><td>8.95</td><td>27.87</td><td>1.26</td><td>462.33</td><td>선수좌현 / 3.0</td><td>2 대</td><td>고속 항해 구간</td></tr>
+            <tr><td>Voy 69</td><td>Leg 2</td><td>'26 05.15 13:00</td><td>Arrival S/By</td><td>7.90</td><td>0.79</td><td>0.09</td><td>461.45</td><td>선수좌현 / 3.0</td><td>4 대</td><td>13:00부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 69</td><td>Leg 2</td><td>'26 05.15 15:00</td><td>Arrival</td><td>3.50</td><td>2.24</td><td>0.18</td><td>459.03</td><td>선수좌현 / -</td><td>4 대</td><td>옥포 접안 (Leg2합계: 67.5t)</td></tr>
+
+            <!-- Voy 70 -->
+            <tr><td>Voy 70</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 05.20 18:00</td><td>R/UP</td><td>3.80</td><td>1.17</td><td>0.07</td><td>447.88</td><td>선수 / -</td><td>4 대</td><td>R/UP 시작</td></tr>
+            <tr><td>Voy 70</td><td>Leg 1</td><td>'26 05.21 12:00</td><td>Noon at sea</td><td>8.20</td><td>12.35</td><td>0.93</td><td>434.60</td><td>선수우현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 70</td><td>Leg 1</td><td>'26 05.22 12:00</td><td>Noon at sea</td><td>8.15</td><td>15.54</td><td>1.39</td><td>417.67</td><td>선수우현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 70</td><td>Leg 1</td><td>'26 05.23 07:30</td><td>Arrival S/By</td><td>6.85</td><td>12.45</td><td>1.07</td><td>404.15</td><td>선수좌현 / 3.0</td><td>4 대</td><td>07:30부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 70</td><td>Leg 1</td><td>'26 05.23 10:00</td><td>Arrival</td><td>4.10</td><td>2.73</td><td>0.20</td><td>401.22</td><td>선수좌현 / -</td><td>4 대</td><td>연태 접안 (Leg1합계: 46.2t)</td></tr>
+            <tr><td>Voy 70</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 05.28 17:30</td><td>R/UP</td><td>5.10</td><td>2.21</td><td>0.12</td><td>388.90</td><td>선수우현 / -</td><td>4 대</td><td>15:30~17:30 발전기 4대 운용</td></tr>
+            <tr><td>Voy 70</td><td>Leg 2</td><td>'26 05.29 12:00</td><td>Noon at sea</td><td>8.45</td><td>12.33</td><td>0.94</td><td>375.63</td><td>선수우현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 70</td><td>Leg 2</td><td>'26 05.30 12:00</td><td>Noon at sea</td><td>8.12</td><td>13.13</td><td>1.17</td><td>361.33</td><td>선수좌현 / 4.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 70</td><td>Leg 2</td><td>'26 05.31 06:00</td><td>Arrival S/By</td><td>6.90</td><td>10.16</td><td>0.98</td><td>350.19</td><td>선수좌현 / 3.0</td><td>4 대</td><td>06:00부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 70</td><td>Leg 2</td><td>'26 05.31 08:00</td><td>Arrival</td><td>3.20</td><td>1.47</td><td>0.08</td><td>348.64</td><td>선수좌현 / -</td><td>4 대</td><td>옥포 접안 (Leg2합계: 44.3t)</td></tr>
+
+            <!-- Voy 71 -->
+            <tr><td>Voy 71</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 06.03 17:30</td><td>R/UP</td><td>5.71</td><td>1.95</td><td>0.11</td><td>274.36</td><td>선미 / -</td><td>2 대</td><td>R/UP 시작</td></tr>
+            <tr><td>Voy 71</td><td>Leg 1</td><td>'26 06.04 12:00</td><td>Noon at sea</td><td>8.43</td><td>10.90</td><td>0.84</td><td>262.62</td><td>선수좌현 / 4.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 71</td><td>Leg 1</td><td>'26 06.05 12:00</td><td>Noon at sea</td><td>7.48</td><td>14.83</td><td>1.25</td><td>246.54</td><td>선미우현 / 4.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 71</td><td>Leg 1</td><td>'26 06.06 08:00</td><td>Arrival S/By</td><td>7.85</td><td>14.14</td><td>0.98</td><td>231.42</td><td>선수우현 / 3.0</td><td>4 대</td><td>08:00부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 71</td><td>Leg 1</td><td>'26 06.06 10:24</td><td>Arrival</td><td>5.00</td><td>1.80</td><td>0.11</td><td>229.51</td><td>선미우현 / -</td><td>1 대</td><td>연태 접안 (Leg1합계: 46.8t)</td></tr>
+            <tr><td>Voy 71</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 06.08 17:00</td><td>R/UP</td><td>4.40</td><td>2.33</td><td>0.20</td><td>211.78</td><td>선미좌현 / -</td><td>4 대</td><td>R/UP 시작</td></tr>
+            <tr><td>Voy 71</td><td>Leg 2</td><td>'26 06.09 12:00</td><td>Noon at sea</td><td>7.79</td><td>14.16</td><td>0.91</td><td>196.71</td><td>선미우현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 71</td><td>Leg 2</td><td>'26 06.10 00:00</td><td>Noon at sea</td><td>17.45</td><td>14.49</td><td>1.07</td><td>181.15</td><td>좌현 / 3.0</td><td>2 대</td><td>조류 및 기상 호조 선속 급증</td></tr>
+            <tr><td>Voy 71</td><td>Leg 2</td><td>'26 06.11 06:30</td><td>Arrival S/By</td><td>4.92</td><td>9.69</td><td>0.86</td><td>170.60</td><td>선수좌현 / 4.0</td><td>4 대</td><td>06:30부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 71</td><td>Leg 2</td><td>'26 06.11 08:00</td><td>Arrival</td><td>3.33</td><td>1.57</td><td>0.09</td><td>168.94</td><td>선수좌현 / -</td><td>1 대</td><td>옥포 접안 (Leg2합계: 45.4t)</td></tr>
+
+            <!-- Voy 74 -->
+            <tr><td>Voy 74</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 07.20 19:00</td><td>R/UP</td><td>4.00</td><td>1.99</td><td>0.16</td><td>687.05</td><td>선미 / -</td><td>2 대</td><td>R/UP 시작</td></tr>
+            <tr><td>Voy 74</td><td>Leg 1</td><td>'26 07.21 12:00</td><td>Noon at sea</td><td>7.82</td><td>11.32</td><td>1.04</td><td>674.69</td><td>선수좌현 / 2.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 74</td><td>Leg 1</td><td>'26 07.22 12:00</td><td>Noon at sea</td><td>8.44</td><td>15.45</td><td>1.59</td><td>657.65</td><td>선미우현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 74</td><td>Leg 1</td><td>'26 07.23 08:00</td><td>Arrival S/By</td><td>7.80</td><td>11.00</td><td>1.29</td><td>645.36</td><td>선수좌현 / 2.0</td><td>4 대</td><td>08:00부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 74</td><td>Leg 1</td><td>'26 07.23 11:00</td><td>Arrival</td><td>5.33</td><td>3.25</td><td>0.30</td><td>641.81</td><td>선미우현 / -</td><td>1 대</td><td>연태 접안 (Leg1합계: 47.4t)</td></tr>
+            <tr><td>Voy 74</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 07.26 15:30</td><td>R/UP</td><td>5.20</td><td>2.27</td><td>0.13</td><td>632.10</td><td>선수우현 / -</td><td>4 대</td><td>R/UP 시작</td></tr>
+            <tr><td>Voy 74</td><td>Leg 2</td><td>'26 07.27 12:00</td><td>Noon at sea</td><td>8.30</td><td>16.26</td><td>0.98</td><td>614.86</td><td>선수좌현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 74</td><td>Leg 2</td><td>'26 07.28 12:00</td><td>Noon at sea</td><td>8.10</td><td>15.32</td><td>1.15</td><td>598.39</td><td>선미우현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 74</td><td>Leg 2</td><td>'26 07.29 06:30</td><td>Arrival S/By</td><td>6.85</td><td>9.06</td><td>1.01</td><td>588.32</td><td>선수좌현 / 3.0</td><td>4 대</td><td>06:30부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 74</td><td>Leg 2</td><td>'26 07.29 09:42</td><td>Arrival</td><td>3.40</td><td>2.07</td><td>0.14</td><td>586.11</td><td>선수좌현 / -</td><td>1 대</td><td>옥포 접안 (Leg2합계: 48.4t)</td></tr>
+
+            <!-- Voy 75 -->
+            <tr><td>Voy 75</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 08.01 16:00</td><td>R/UP</td><td>4.80</td><td>1.93</td><td>0.12</td><td>572.10</td><td>선수우현 / -</td><td>4 대</td><td>R/UP 시작</td></tr>
+            <tr><td>Voy 75</td><td>Leg 1</td><td>'26 08.02 12:00</td><td>Noon at sea</td><td>8.10</td><td>12.51</td><td>1.47</td><td>558.12</td><td>선수우현 / 3.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 75</td><td>Leg 1</td><td>'26 08.03 12:00</td><td>Noon at sea</td><td>8.25</td><td>14.63</td><td>2.00</td><td>541.49</td><td>선수우현 / 4.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 75</td><td>Leg 1</td><td>'26 08.04 08:00</td><td>Arrival S/By</td><td>7.40</td><td>13.35</td><td>1.65</td><td>526.49</td><td>선수좌현 / 3.0</td><td>4 대</td><td>08:00부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 75</td><td>Leg 1</td><td>'26 08.04 10:30</td><td>Arrival</td><td>4.20</td><td>2.97</td><td>0.27</td><td>523.25</td><td>선미좌현 / -</td><td>4 대</td><td>연태 접안 (Leg1합계: 50.8t)</td></tr>
+            <tr><td>Voy 75</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 08.06 16:30</td><td>R/UP</td><td>5.10</td><td>2.52</td><td>0.16</td><td>508.10</td><td>선수좌현 / -</td><td>4 대</td><td>R/UP 시작</td></tr>
+            <tr><td>Voy 75</td><td>Leg 2</td><td>'26 08.07 12:00</td><td>Noon at sea</td><td>9.10</td><td>22.14</td><td>1.36</td><td>484.60</td><td>선수우현 / 5.0</td><td>3 대</td><td>주기관 출력 증대 항해</td></tr>
+            <tr><td>Voy 75</td><td>Leg 2</td><td>'26 08.08 12:00</td><td>Noon at sea</td><td>9.35</td><td>25.87</td><td>1.49</td><td>457.24</td><td>선수우현 / 5.0</td><td>3 대</td><td><span class="has-tooltip" data-tooltip="기상 악화 극복 및 일정 준수를 위한 M/E 출력 증대">고속 항해...</span></td></tr>
+            <tr><td>Voy 75</td><td>Leg 2</td><td>'26 08.09 06:30</td><td>Arrival S/By</td><td>8.80</td><td>22.88</td><td>1.08</td><td>433.28</td><td>선수좌현 / 4.0</td><td>4 대</td><td>06:30부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 75</td><td>Leg 2</td><td>'26 08.09 10:00</td><td>Arrival</td><td>3.60</td><td>2.04</td><td>0.18</td><td>431.06</td><td>선수좌현 / -</td><td>4 대</td><td>옥포 접안 (Leg2합계: 79.8t)</td></tr>
+
+            <!-- Voy 76 -->
+            <tr><td>Voy 76</td><td>Leg 1 (옥포&rarr;연태)</td><td>'26 08.16 10:30</td><td>R/UP</td><td>3.20</td><td>1.86</td><td>0.07</td><td>418.10</td><td>선수 / -</td><td>4 대</td><td>R/UP 시작</td></tr>
+            <tr><td>Voy 76</td><td>Leg 1</td><td>'26 08.16 12:00</td><td>Noon at sea</td><td>4.50</td><td>2.09</td><td>0.06</td><td>415.95</td><td>선수 / 2.0</td><td>2 대</td><td>정속 항해</td></tr>
+            <tr><td>Voy 76</td><td>Leg 1</td><td>'26 08.17 12:00</td><td>Noon at sea</td><td>9.80</td><td>34.39</td><td>1.29</td><td>380.27</td><td>선수우현 / 4.0</td><td>3 대</td><td>M/E 증대 항해</td></tr>
+            <tr><td>Voy 76</td><td>Leg 1</td><td>'26 08.18 12:00</td><td>Noon at sea</td><td>8.90</td><td>24.30</td><td>1.50</td><td>354.47</td><td>선수우현 / 3.0</td><td>3 대</td><td>M/E 증대 항해</td></tr>
+            <tr><td>Voy 76</td><td>Leg 1</td><td>'26 08.18 14:00</td><td>Arrival S/By</td><td>6.50</td><td>3.83</td><td>0.19</td><td>350.45</td><td>선수좌현 / 3.0</td><td>4 대</td><td>14:00부터 발전기 4대 운용</td></tr>
+            <tr><td>Voy 76</td><td>Leg 1</td><td>'26 08.18 16:24</td><td>Arrival</td><td>3.80</td><td>1.59</td><td>0.15</td><td>348.71</td><td>선수좌현 / -</td><td>4 대</td><td>연태 접안 (진행 중)</td></tr>
+            <tr><td>Voy 76</td><td>Leg 2 (연태&rarr;옥포)</td><td>'26 08.21 17:00</td><td>R/UP</td><td>5.00</td><td>2.53</td><td>0.15</td><td>335.10</td><td>선수 / -</td><td>4 대</td><td>R/UP (데이터 집계 중)</td></tr>
+
+            <!-- Voy 77 -->
+            <tr><td>Voy 77</td><td>Leg 1 & 2</td><td>-</td><td>-</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td><td>-</td><td>-</td><td><span class="has-tooltip" data-tooltip="Voy 77 항차 계획 수립 완료 (운항 예정 데이터)">운항 예정...</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- Theme Management ---
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const htmlElem = document.documentElement;
+
+    let fuelChartInstance = null;
+    let bonusChartInstance = null;
+
+    themeToggleBtn.addEventListener('click', () => {
+      const currentTheme = htmlElem.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      
+      htmlElem.setAttribute('data-theme', newTheme);
+      themeToggleBtn.textContent = newTheme === 'dark' ? '[ LIGHT MODE ]' : '[ DARK MODE ]';
+
+      updateChartsTheme();
+    });
+
+    // --- Side Navigation ---
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const closeBtn = document.getElementById('closeBtn');
+    const sidenav = document.getElementById('sidenav');
+    const overlay = document.getElementById('overlay');
+
+    function openSidenav() { sidenav.classList.add('active'); overlay.classList.add('active'); }
+    function closeSidenav() { sidenav.classList.remove('active'); overlay.classList.remove('active'); }
+
+    hamburgerBtn.addEventListener('click', openSidenav);
+    closeBtn.addEventListener('click', closeSidenav);
+    overlay.addEventListener('click', closeSidenav);
+
+    // --- Page Switcher (Animation included) ---
+    function switchPage(pageId) {
+      closeSidenav();
+      const pages = document.querySelectorAll('.page-container');
+      pages.forEach(p => p.classList.remove('active-page'));
+      
+      setTimeout(() => {
+        document.getElementById(pageId).classList.add('active-page');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 50);
+    }
+
+    // --- Filter function for Shipment Details ---
+    function filterDetailsTable() {
+      const input = document.getElementById("searchInput");
+      const filter = input.value.toUpperCase();
+      const table = document.getElementById("detailsTable");
+      const tr = table.getElementsByTagName("tr");
+
+      for (let i = 1; i < tr.length; i++) {
+        let visible = false;
+        const tds = tr[i].getElementsByTagName("td");
+        for (let j = 0; j < tds.length; j++) {
+          if (tds[j]) {
+            const txtValue = tds[j].textContent || tds[j].innerText;
+            if (txtValue.toUpperCase().indexOf(filter) > -1) {
+              visible = true;
+              break;
+            }
+          }
+        }
+        tr[i].style.display = visible ? "" : "none";
+      }
+    }
+
+    // --- Sorting function for Shipment Details ---
+    let currentSortCol = -1;
+    let isAsc = true;
+
+    function sortTable(colIndex, isNumeric = false) {
+      const table = document.getElementById("detailsTable");
+      const tbody = table.querySelector("tbody");
+      const rows = Array.from(tbody.querySelectorAll("tr"));
+
+      if (currentSortCol === colIndex) {
+        isAsc = !isAsc;
+      } else {
+        currentSortCol = colIndex;
+        isAsc = true;
+      }
+
+      rows.sort((rowA, rowB) => {
+        const cellA = rowA.cells[colIndex].textContent.trim();
+        const cellB = rowB.cells[colIndex].textContent.trim();
+
+        if (isNumeric) {
+          const valA = parseFloat(cellA.replace(/[^0-9.-]+/g, "")) || 0;
+          const valB = parseFloat(cellB.replace(/[^0-9.-]+/g, "")) || 0;
+          return isAsc ? valA - valB : valB - valA;
+        } else {
+          return isAsc ? cellA.localeCompare(cellB, 'ko') : cellB.localeCompare(cellA, 'ko');
+        }
+      });
+
+      rows.forEach(row => tbody.appendChild(row));
+    }
+
+    // --- Chart Helpers ---
+    function getGridColor() {
+      return getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim();
+    }
+    function getTextColor() {
+      return getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+    }
+
+    // --- Data Arrays ---
+    const labels = ['Voy 63', 'Voy 64', 'Voy 65', 'Voy 66', 'Voy 67', 'Voy 68', 'Voy 69', 'Voy 70', 'Voy 71', 'Voy 74', 'Voy 75'];
+    const fuelUsedData = [98.12, 98.66, 96.70, 88.22, 103.37, 98.31, 113.48, 90.49, 92.28, 95.78, 130.62];
+    const fuelSavedData = [75.58, 75.04, 77.00, 85.48, 70.33, 75.39, 60.22, 83.21, 81.42, 77.92, 43.08];
+    const bonusData = [26580640, 25854157, 25887486, 28738472, 28083559, 59547951, 46044574, 58374385, 57118644, 43356441, 23970681];
+
+    function initCharts() {
+      const textColor = getTextColor();
+      const gridColor = getGridColor();
+
+      // Chart 1: Bar
+      const ctx1 = document.getElementById('fuelChart').getContext('2d');
+      fuelChartInstance = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: '항해 유류량 (톤)',
+              data: fuelUsedData,
+              backgroundColor: 'rgba(147, 197, 253, 0.75)',
+              borderColor: 'rgba(147, 197, 253, 1)',
+              borderWidth: 1
+            },
+            {
+              label: '절감량 (톤)',
+              data: fuelSavedData,
+              backgroundColor: 'rgba(167, 243, 208, 0.75)',
+              borderColor: 'rgba(167, 243, 208, 1)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: textColor } } },
+          scales: {
+            x: { ticks: { color: textColor }, grid: { color: gridColor } },
+            y: { ticks: { color: textColor }, grid: { color: gridColor } }
+          }
+        }
+      });
+
+      // Chart 2: Sharp Line (Smooth Disabled)
+      const ctx2 = document.getElementById('bonusChart').getContext('2d');
+      bonusChartInstance = new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '항차별 성과급 (원)',
+            data: bonusData,
+            backgroundColor: 'rgba(251, 207, 232, 0.25)',
+            borderColor: 'rgba(244, 114, 182, 1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0, // Smoothing disabled
+            pointBackgroundColor: 'rgba(244, 114, 182, 1)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: textColor } } },
+          scales: {
+            x: { ticks: { color: textColor }, grid: { color: gridColor } },
+            y: {
+              ticks: { 
+                color: textColor,
+                callback: function(v) { return '₩' + (v / 10000).toLocaleString() + '만'; }
+              },
+              grid: { color: gridColor }
+            }
+          }
+        }
+      });
+    }
+
+    function updateChartsTheme() {
+      const textColor = getTextColor();
+      const gridColor = getGridColor();
+
+      [fuelChartInstance, bonusChartInstance].forEach(chart => {
+        if (chart) {
+          chart.options.plugins.legend.labels.color = textColor;
+          chart.options.scales.x.ticks.color = textColor;
+          chart.options.scales.x.grid.color = gridColor;
+          chart.options.scales.y.ticks.color = textColor;
+          chart.options.scales.y.grid.color = gridColor;
+          chart.update();
+        }
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', initCharts);
+  </script>
+</body>
+</html>
