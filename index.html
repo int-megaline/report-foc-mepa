@@ -460,10 +460,21 @@ const DATA = {"meta":{"baseline":173.7,"voy_range":"63~78","updated":"2026-09-21
   themeBtn.addEventListener('click', function(){
     curTheme = (curTheme === 'dark') ? 'light' : 'dark';
     setThemeAttr(curTheme);
+    // Force an immediate full-page repaint. On some Windows/Chromium builds,
+    // changing a CSS custom property alone only repaints the elements the
+    // compositor currently considers "dirty" (e.g. inside a sticky/scroll
+    // container), leaving other text visually stuck at the old color until
+    // the next scroll, resize, or manual refresh. Nudging opacity forces the
+    // whole document to recomposite right away, with no visible flicker.
+    try {
+      document.documentElement.style.opacity = '0.9999';
+      void document.documentElement.offsetHeight; // flush layout synchronously
+      requestAnimationFrame(function(){ document.documentElement.style.opacity = ''; });
+    } catch(e) { console.error('forced repaint failed', e); }
     if (chartsReady) { try { buildCharts(); } catch(e) { console.error('chart rebuild failed', e); } }
-    // Rebuild table bodies from scratch so every cell repaints with the new
-    // theme colors immediately (some browsers fail to repaint long/sticky
-    // tables when only an inherited CSS variable changes).
+    // Also rebuild table bodies from scratch so every cell repaints with the
+    // new theme colors immediately (belt-and-suspenders for the same class
+    // of long/sticky-table repaint glitch).
     try { renderIncentive(DATA.incentive_rows); } catch(e) { console.error('incentive re-render failed', e); }
     try { renderSupply(); } catch(e) { console.error('supply re-render failed', e); }
     try { renderDetails(); } catch(e) { console.error('details re-render failed', e); }
